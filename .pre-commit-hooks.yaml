@@ -3,15 +3,15 @@
 
 - id: universal-validation
   name: Universal Code Validation
-  entry: python scripts/run_validation.py
-  language: system
+  entry: universal-validation
+  language: python
   pass_filenames: false
   always_run: true
   stages: [pre-commit]
 
 - id: conventional-commits
   name: Conventional Commit Validation
-  entry: python scripts/run_validation.py
-  language: system
+  entry: universal-validation
+  language: python
   pass_filenames: false
   stages: [commit-msg]
