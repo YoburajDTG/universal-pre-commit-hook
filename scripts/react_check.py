@@ -7,7 +7,8 @@ unit testing (npm test), and security auditing (npm audit).
 
 import logging
 import os
-from common import BaseChecker, ValidationContext
+
+from common import BaseChecker
 from utils import CommandResult, run_command
 
 logger = logging.getLogger("universal-precommit")
@@ -27,9 +28,11 @@ class ReactChecker(BaseChecker):
     def run_formatter(self) -> CommandResult:
         """Runs Prettier to format source files."""
         logger.info("Running Prettier code formatter...")
-        
+
         # Check if prettier is installed via npx, fallback to global commands
-        return run_command(["npx", "prettier", "--write", "."], cwd=self.context.project_root)
+        return run_command(
+            ["npx", "prettier", "--write", "."], cwd=self.context.project_root
+        )
 
     def run_lint(self) -> CommandResult:
         """Runs ESLint static code checker."""
@@ -44,37 +47,45 @@ class ReactChecker(BaseChecker):
     def run_tests(self) -> CommandResult:
         """Runs tests in a non-interactive CI mode."""
         logger.info("Running Jest test suite...")
-        
+
         # Inject CI=true to prevent Jest from starting interactive watch mode
         env = os.environ.copy()
         env["CI"] = "true"
-        
-        return run_command(["npm", "test", "--", "--watchAll=false"], cwd=self.context.project_root, env=env)
+
+        return run_command(
+            ["npm", "test", "--", "--watchAll=false"],
+            cwd=self.context.project_root,
+            env=env,
+        )
 
     def run_security_scan(self) -> CommandResult:
         """Scans for dependency vulnerabilities using npm audit."""
         logger.info("Running Node dependency security scan...")
-        
+
         config = self.context.config.security
         if config.npm_audit:
             # npm audit returns non-zero code if vulnerability is found.
             # Usually developers audit with levels (e.g. audit --audit-level=high)
             return run_command(["npm", "audit"], cwd=self.context.project_root)
-            
+
         return CommandResult(
             command="react_security_scan",
             exit_code=0,
             stdout="npm audit check is disabled or skipped.",
             stderr="",
             duration=0.0,
-            success=True
+            success=True,
         )
 
     def run_coverage(self) -> CommandResult:
         """Runs test coverage verification."""
         logger.info("Running React test coverage reports...")
-        
+
         env = os.environ.copy()
         env["CI"] = "true"
-        
-        return run_command(["npm", "test", "--", "--coverage", "--watchAll=false"], cwd=self.context.project_root, env=env)
+
+        return run_command(
+            ["npm", "test", "--", "--coverage", "--watchAll=false"],
+            cwd=self.context.project_root,
+            env=env,
+        )

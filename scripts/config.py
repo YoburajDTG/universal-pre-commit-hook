@@ -88,18 +88,24 @@ def load_config(config_path: Path) -> AppConfig:
     If the file is missing or invalid, it returns default configurations with warnings.
     """
     if not config_path.exists():
-        logger.warning(f"Config file not found at {config_path}. Using default configuration.")
+        logger.warning(
+            f"Config file not found at {config_path}. Using default configuration."
+        )
         return AppConfig()
 
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-        
+
         if not isinstance(data, dict):
-            logger.error(f"Invalid yaml format in {config_path}. Expected dictionary structure.")
+            logger.error(
+                f"Invalid yaml format in {config_path}. Expected dictionary structure."
+            )
             return AppConfig()
 
         return AppConfig.from_dict(data)
     except Exception as e:
-        logger.error(f"Error reading configuration file {config_path}: {e}. Falling back to default settings.")
+        logger.error(
+            f"Error reading configuration file {config_path}: {e}. Falling back to default settings."
+        )
         return AppConfig()

@@ -6,7 +6,8 @@ and package vulnerability assessments (dotnet list package --vulnerable).
 """
 
 import logging
-from common import BaseChecker, ValidationContext
+
+from common import BaseChecker
 from utils import CommandResult, run_command
 
 logger = logging.getLogger("universal-precommit")
@@ -34,30 +35,46 @@ class DotNetChecker(BaseChecker):
         """Verifies styling and syntax rules without writing changes."""
         logger.info("Running dotnet style verification (linter)...")
         # dotnet format --verify-no-changes acts as formatting check linter
-        return run_command(["dotnet", "format", "--verify-no-changes"], cwd=self.context.project_root)
+        return run_command(
+            ["dotnet", "format", "--verify-no-changes"], cwd=self.context.project_root
+        )
 
     def run_build(self) -> CommandResult:
         """Compiles the solution or project."""
         logger.info("Running dotnet build...")
-        return run_command(["dotnet", "build", "--configuration", "Release"], cwd=self.context.project_root)
+        return run_command(
+            ["dotnet", "build", "--configuration", "Release"],
+            cwd=self.context.project_root,
+        )
 
     def run_tests(self) -> CommandResult:
         """Runs the unit/integration test suites."""
         logger.info("Running dotnet test suite...")
-        return run_command(["dotnet", "test", "--no-build", "--configuration", "Release"], cwd=self.context.project_root)
+        return run_command(
+            ["dotnet", "test", "--no-build", "--configuration", "Release"],
+            cwd=self.context.project_root,
+        )
 
     def run_security_scan(self) -> CommandResult:
         """Scans packages for known vulnerabilities via dotnet list package."""
         logger.info("Scanning for vulnerable .NET dependencies...")
-        
+
         # Check packages for security warnings (available in modern .NET CLI)
-        return run_command(["dotnet", "list", "package", "--vulnerable"], cwd=self.context.project_root)
+        return run_command(
+            ["dotnet", "list", "package", "--vulnerable"], cwd=self.context.project_root
+        )
 
     def run_coverage(self) -> CommandResult:
         """Evaluates code coverage for dotnet tests."""
         logger.info("Evaluating .NET test coverage metrics...")
         # Collect coverage using standard cross-platform logger or package Coverlet
         return run_command(
-            ["dotnet", "test", "--collect:\"XPlat Code Coverage\"", "--configuration", "Release"],
-            cwd=self.context.project_root
+            [
+                "dotnet",
+                "test",
+                '--collect:"XPlat Code Coverage"',
+                "--configuration",
+                "Release",
+            ],
+            cwd=self.context.project_root,
         )

@@ -7,7 +7,8 @@ compilation, test executions, OWASP dependency vulnerability scans, and JaCoCo c
 
 import logging
 import sys
-from common import BaseChecker, ValidationContext
+
+from common import BaseChecker
 from utils import CommandResult, run_command
 
 logger = logging.getLogger("universal-precommit")
@@ -38,19 +39,23 @@ class JavaChecker(BaseChecker):
         adapted to the runtime host operating system (Windows vs Unix-like).
         """
         is_windows = sys.platform.startswith("win")
-        
+
         if tool == "maven":
             wrapper = "mvnw.cmd" if is_windows else "./mvnw"
-            if (self.context.project_root / ("mvnw.cmd" if is_windows else "mvnw")).exists():
+            if (
+                self.context.project_root / ("mvnw.cmd" if is_windows else "mvnw")
+            ).exists():
                 return wrapper
             return "mvn"
-            
+
         elif tool == "gradle":
             wrapper = "gradlew.bat" if is_windows else "./gradlew"
-            if (self.context.project_root / ("gradlew.bat" if is_windows else "gradlew")).exists():
+            if (
+                self.context.project_root / ("gradlew.bat" if is_windows else "gradlew")
+            ).exists():
                 return wrapper
             return "gradle"
-            
+
         return tool
 
     def run_formatter(self) -> CommandResult:
@@ -58,17 +63,23 @@ class JavaChecker(BaseChecker):
         logger.info("Running Spotless code formatter...")
         if self._is_maven():
             exec_tool = self._get_executable("maven")
-            return run_command([exec_tool, "spotless:apply"], cwd=self.context.project_root)
+            return run_command(
+                [exec_tool, "spotless:apply"], cwd=self.context.project_root
+            )
         else:
             exec_tool = self._get_executable("gradle")
-            return run_command([exec_tool, "spotlessApply"], cwd=self.context.project_root)
+            return run_command(
+                [exec_tool, "spotlessApply"], cwd=self.context.project_root
+            )
 
     def run_lint(self) -> CommandResult:
         """Executes linting via Checkstyle (Maven) or standard validation check tasks (Gradle)."""
         logger.info("Running Java static code lint checkstyle analysis...")
         if self._is_maven():
             exec_tool = self._get_executable("maven")
-            return run_command([exec_tool, "checkstyle:check"], cwd=self.context.project_root)
+            return run_command(
+                [exec_tool, "checkstyle:check"], cwd=self.context.project_root
+            )
         else:
             exec_tool = self._get_executable("gradle")
             return run_command([exec_tool, "check"], cwd=self.context.project_root)
@@ -79,10 +90,14 @@ class JavaChecker(BaseChecker):
         if self._is_maven():
             exec_tool = self._get_executable("maven")
             # Maven package compiling without test phases
-            return run_command([exec_tool, "compile", "test-compile"], cwd=self.context.project_root)
+            return run_command(
+                [exec_tool, "compile", "test-compile"], cwd=self.context.project_root
+            )
         else:
             exec_tool = self._get_executable("gradle")
-            return run_command([exec_tool, "build", "-x", "test"], cwd=self.context.project_root)
+            return run_command(
+                [exec_tool, "build", "-x", "test"], cwd=self.context.project_root
+            )
 
     def run_tests(self) -> CommandResult:
         """Runs JUnit unit and integration tests."""
@@ -104,23 +119,31 @@ class JavaChecker(BaseChecker):
                 stdout="Java OWASP dependency check is disabled or skipped.",
                 stderr="",
                 duration=0.0,
-                success=True
+                success=True,
             )
 
         logger.info("Running OWASP dependency check vulnerability scan...")
         if self._is_maven():
             exec_tool = self._get_executable("maven")
-            return run_command([exec_tool, "dependency-check:check"], cwd=self.context.project_root)
+            return run_command(
+                [exec_tool, "dependency-check:check"], cwd=self.context.project_root
+            )
         else:
             exec_tool = self._get_executable("gradle")
-            return run_command([exec_tool, "dependencyCheckAnalyze"], cwd=self.context.project_root)
+            return run_command(
+                [exec_tool, "dependencyCheckAnalyze"], cwd=self.context.project_root
+            )
 
     def run_coverage(self) -> CommandResult:
         """Runs coverage report generation (requires JaCoCo configured)."""
         logger.info("Running JaCoCo test coverage reports...")
         if self._is_maven():
             exec_tool = self._get_executable("maven")
-            return run_command([exec_tool, "jacoco:report"], cwd=self.context.project_root)
+            return run_command(
+                [exec_tool, "jacoco:report"], cwd=self.context.project_root
+            )
         else:
             exec_tool = self._get_executable("gradle")
-            return run_command([exec_tool, "jacocoTestReport"], cwd=self.context.project_root)
+            return run_command(
+                [exec_tool, "jacocoTestReport"], cwd=self.context.project_root
+            )

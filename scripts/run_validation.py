@@ -6,7 +6,6 @@ handles global git checks, formats terminal reports, and manages exit states.
 """
 
 import argparse
-import os
 import re
 import sys
 import time
@@ -14,17 +13,11 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from common import BaseChecker, ValidationContext
-from config import AppConfig, load_config
 from detect_project import detect_projects
-from utils import (
-    CommandResult,
-    print_error,
-    print_info,
-    print_success,
-    print_warning,
-    run_command,
-    setup_logging,
-)
+from utils import (CommandResult, print_error, print_info, print_success,
+                   print_warning, run_command, setup_logging)
+
+from config import load_config
 
 # Regex to validate Conventional Commits format
 CONVENTIONAL_COMMIT_REGEX = re.compile(
@@ -102,7 +95,9 @@ def validate_conventional_commit(
     first_line = lines[0].strip()
 
     # Skip merge commits or auto-generated release commits
-    if first_line.startswith("Merge branch ") or first_line.startswith("Merge pull request "):
+    if first_line.startswith("Merge branch ") or first_line.startswith(
+        "Merge pull request "
+    ):
         return True
 
     if CONVENTIONAL_COMMIT_REGEX.match(first_line):
@@ -143,11 +138,13 @@ def check_branch_protection(repo_root: Path) -> None:
 def run_gitleaks(repo_root: Path) -> bool:
     """Executes Gitleaks secrets scanner if Gitleaks is installed in PATH."""
     print_info("Checking for secret exposure risks via Gitleaks...")
-    
+
     # Check if gitleaks is installed in PATH
     verify_install = run_command(["gitleaks", "version"], cwd=repo_root)
     if not verify_install.success:
-        print_warning("Gitleaks binary is not installed in the system PATH. Skipping secret scan.")
+        print_warning(
+            "Gitleaks binary is not installed in the system PATH. Skipping secret scan."
+        )
         return True
 
     # Run gitleaks detect
@@ -166,7 +163,7 @@ def run_gitleaks(repo_root: Path) -> bool:
 def print_overall_summary(
     checkers: List[BaseChecker],
     results: Dict[str, Dict[str, CommandResult]],
-    overall_duration: float
+    overall_duration: float,
 ) -> bool:
     """
     Formats and prints a comprehensive execution dashboard report.
@@ -175,37 +172,37 @@ def print_overall_summary(
     print("\n" + "=" * 60)
     print("                 VALIDATION EXECUTION SUMMARY")
     print("=" * 60)
-    
+
     any_failures = False
 
     for checker in checkers:
         print(f"\nProject: {checker.name} ({checker.context.project_root.name})")
         print("-" * 50)
-        
+
         checker_results = results.get(checker.name, {})
         for stage, res in checker_results.items():
             duration_str = f"{res.duration:.2f}s"
-            
+
             # Format outputs based on command status
             if "skipped" in res.command or "unimplemented" in res.command:
-                status = f"\033[93m[SKIPPED]\033[0m"
+                status = "\033[93m[SKIPPED]\033[0m"
                 duration_str = "N/A"
             elif res.success:
-                status = f"\033[92m[PASSED]\033[0m"
+                status = "\033[92m[PASSED]\033[0m"
             else:
-                status = f"\033[91m[FAILED]\033[0m"
+                status = "\033[91m[FAILED]\033[0m"
                 any_failures = True
 
             print(f"  Stage: {stage:<15} {status:<15} Duration: {duration_str}")
 
     print("\n" + "=" * 60)
     print(f"Overall Duration: {overall_duration:.2f}s")
-    
+
     if any_failures:
         print("\033[91mOverall Status: FAILED (Some checks did not pass)\033[0m")
     else:
         print("\033[92mOverall Status: PASSED (All validation hooks succeeded)\033[0m")
-        
+
     print("=" * 60 + "\n")
     return not any_failures
 
@@ -217,7 +214,7 @@ def main() -> int:
 
     repo_root = Path.cwd().resolve()
     log_path = repo_root / args.log
-    
+
     # 1. Setup logging
     setup_logging(log_path)
     print_info(f"Initialized Universal Pre-Commit Validation. Log file: {log_path}")
@@ -244,9 +241,11 @@ def main() -> int:
         return 1
 
     # 4. Auto-discover repository languages
-    context = ValidationContext(project_root=repo_root, config=config, log_file=log_path)
+    context = ValidationContext(
+        project_root=repo_root, config=config, log_file=log_path
+    )
     checkers = detect_projects(context)
-    
+
     if not checkers:
         print_info("No language checkers executed (no project markers detected).")
         return 0
@@ -255,7 +254,14 @@ def main() -> int:
     if args.stage:
         stages_to_run = [args.stage]
     else:
-        stages_to_run = ["formatter", "lint", "build", "tests", "security_scan", "coverage"]
+        stages_to_run = [
+            "formatter",
+            "lint",
+            "build",
+            "tests",
+            "security_scan",
+            "coverage",
+        ]
 
     # Dictionary to collect results: {checker_name: {stage_name: CommandResult}}
     results: Dict[str, Dict[str, CommandResult]] = {}
@@ -263,13 +269,15 @@ def main() -> int:
     # 6. Execute stages sequentially across detected checkers
     for checker in checkers:
         results[checker.name] = {}
-        print_info(f"Starting validations for {checker.name} project at: {checker.context.project_root}")
-        
+        print_info(
+            f"Starting validations for {checker.name} project at: {checker.context.project_root}"
+        )
+
         for stage in stages_to_run:
             print_info(f"Executing: {checker.name} -> {stage}")
             res = checker.run_stage(stage)
             results[checker.name][stage] = res
-            
+
             if not res.success:
                 print_error(f"Stage '{stage}' failed for {checker.name} project.")
                 # Return immediately as requested for strict pre-commit checks
@@ -279,7 +287,7 @@ def main() -> int:
 
     overall_duration = time.perf_counter() - start_time
     success = print_overall_summary(checkers, results, overall_duration)
-    
+
     return 0 if success else 1
 
 

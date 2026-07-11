@@ -9,13 +9,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from config import AppConfig
 from utils import CommandResult
+
+from config import AppConfig
 
 
 @dataclass(frozen=True)
 class ValidationContext:
     """Carries configuration and environment details across checkers."""
+
     project_root: Path
     config: AppConfig
     log_file: Optional[Path] = None
@@ -57,7 +59,7 @@ class BaseChecker(ABC):
                 stdout=f"Stage '{stage_name}' disabled in config.yaml",
                 stderr="",
                 duration=0.0,
-                success=True
+                success=True,
             )
 
         # Map stage string to execution method
@@ -69,7 +71,7 @@ class BaseChecker(ABC):
                 stdout=f"Stage '{stage_name}' not implemented for {self.name}",
                 stderr="",
                 duration=0.0,
-                success=True
+                success=True,
             )
 
         method = getattr(self, method_name)
