@@ -1,0 +1,30 @@
+# Universal Pre-Commit Validation Configuration
+
+# Enable or disable core stages of the validation pipeline
+stages:
+  formatter: true
+  lint: true
+  build: true
+  tests: true
+  security_scan: true
+  coverage: true
+
+# Configuration for language-specific security and audit tools
+security:
+  # Python security tools
+  bandit: true                # Run Bandit for Python security linting
+  pip_audit: true             # Run pip-audit for Python dependency checking
+  
+  # React/JS security tools
+  npm_audit: true             # Run npm audit for JavaScript/TypeScript vulnerabilities
+  
+  # Java security tools
+  owasp_dependency_check: false # Run OWASP Dependency Check (requires Maven/Gradle plugin configuration)
+  
+  # Generic secret scanning
+  gitleaks: false             # Run Gitleaks (requires gitleaks CLI installed and available in PATH)
+
+# Git rules and repository policies
+git:
+  conventional_commits: true  # Enforce conventional commit messages (e.g. feat:, fix:)
+  branch_protection: true     # Enable branch protection verification and recommendations

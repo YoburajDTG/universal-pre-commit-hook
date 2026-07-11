@@ -1,0 +1,25 @@
+# Git ignore patterns for Universal Precommit Hook framework
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python Cache & Bytecode
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Framework Execution Logs
+*.log
+
+# IDE and Project configuration files
+.idea/
+.vscode/
+*.swp
+*.swo

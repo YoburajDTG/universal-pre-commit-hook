@@ -1,0 +1,91 @@
+name: Universal Pre-Commit Validation CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  validate:
+    name: Codebase Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository source code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for Git conventional commits & leaks validation
+
+      # 2. Setup Python environment
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      # 3. Setup Node.js environment (React/JS/TS support)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      # 4. Setup .NET SDK (C# support)
+      - name: Set up .NET Core SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 5. Setup Java JDK (Maven/Gradle support)
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      # 6. Install framework core Python dependencies
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 7. Auto-detect project structure
+      - name: Detect Projects
+        run: |
+          python -c "
+          from pathlib import Path
+          from scripts.config import AppConfig
+          from scripts.common import ValidationContext
+          from scripts.detect_project import detect_projects
+          ctx = ValidationContext(project_root=Path.cwd(), config=AppConfig())
+          checkers = detect_projects(ctx)
+          print('Found projects:', [c.name for c in checkers])
+          "
+
+      # 8. Run code formatters check
+      - name: Run Code Formatter Validation
+        run: python scripts/run_validation.py --stage formatter
+
+      # 9. Run static analysis code linters
+      - name: Run Linter Validation
+        run: python scripts/run_validation.py --stage lint
+
+      # 10. Run build compilation check
+      - name: Run Build Verification
+        run: python scripts/run_validation.py --stage build
+
+      # 11. Run test suite
+      - name: Run Unit Tests
+        run: python scripts/run_validation.py --stage tests
+
+      # 12. Run security vulnerability scans
+      - name: Run Security Scans
+        run: python scripts/run_validation.py --stage security_scan
+
+      # 13. Run code coverage assessments
+      - name: Run Code Coverage Check
+        run: python scripts/run_validation.py --stage coverage
