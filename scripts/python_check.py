@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+"""
+Python project checker implementation for the Universal Pre-Commit Validation Framework.
+Enforces styling (Black/Isort in validation mode), linting (Ruff), unit testing (Pytest),
+and optional security auditing (Bandit/pip-audit).
+"""
+
 import logging
 import sys
 
@@ -43,9 +50,9 @@ class PythonChecker(BaseChecker):
         return sys.executable
 
     def run_formatter(self) -> CommandResult:
-        """Runs black and isort in validation/check-only mode."""
+        """Runs black and isort in validation/check-only mode using pre-commit's environment python."""
         logger.info("Running Python code formatter checks...")
-        py_exec = self._get_python_executable()
+        py_exec = sys.executable
 
         # Run Black --check
         black_res = run_command(
@@ -61,16 +68,16 @@ class PythonChecker(BaseChecker):
         return isort_res
 
     def run_linter(self) -> CommandResult:
-        """Runs Ruff for ultra-fast linting checks."""
+        """Runs Ruff for ultra-fast linting checks using pre-commit's environment python."""
         logger.info("Running Python static code linter...")
-        py_exec = self._get_python_executable()
+        py_exec = sys.executable
         return run_command(
             [py_exec, "-m", "ruff", "check", "."], cwd=self.context.project_root
         )
 
     def run_build(self) -> CommandResult:
         """
-        Verifies Python source file syntax via bytecode compilation.
+        Verifies Python source file syntax via bytecode compilation using the project's Python runtime.
         Acts as the 'build' stage for interpreted Python.
         """
         logger.info("Verifying Python syntax compile checks...")
@@ -100,7 +107,7 @@ class PythonChecker(BaseChecker):
         )
 
     def run_tests(self) -> CommandResult:
-        """Runs unit and integration tests using pytest."""
+        """Runs unit and integration tests using pytest within the project's Python runtime."""
         logger.info("Running Python unit test suite...")
         py_exec = self._get_python_executable()
         return run_command([py_exec, "-m", "pytest"], cwd=self.context.project_root)
@@ -109,7 +116,7 @@ class PythonChecker(BaseChecker):
         """Executes security scans using Bandit and pip-audit based on configuration."""
         logger.info("Running Python security scanning stages...")
         config = self.context.config.security
-        py_exec = self._get_python_executable()
+        py_exec = sys.executable
 
         # 1. Bandit check (SAST)
         if config.bandit:
