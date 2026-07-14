@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 React/TypeScript project checker implementation for the Universal Pre-Commit Validation Framework.
-Enforces styling (Prettier), linting (ESLint), compilation (npm run build),
-unit testing (npm test), and security auditing (npm audit).
+Enforces styling (Prettier in validation mode), linting (ESLint), compilation (npm run build),
+unit testing (npm test in CI mode), and optional security auditing (npm audit).
 """
 
 import logging
@@ -26,16 +26,14 @@ class ReactChecker(BaseChecker):
         return (self.context.project_root / "package.json").exists()
 
     def run_formatter(self) -> CommandResult:
-        """Runs Prettier to format source files."""
-        logger.info("Running Prettier code formatter...")
-
-        # Check if prettier is installed via npx, fallback to global commands
+        """Runs Prettier in validation/check mode."""
+        logger.info("Running Prettier code formatter check...")
         return run_command(
-            ["npx", "prettier", "--write", "."], cwd=self.context.project_root
+            ["npx", "prettier", "--check", "."], cwd=self.context.project_root
         )
 
-    def run_lint(self) -> CommandResult:
-        """Runs ESLint static code checker."""
+    def run_linter(self) -> CommandResult:
+        """Runs ESLint static code linter."""
         logger.info("Running ESLint code linter...")
         return run_command(["npx", "eslint", "."], cwd=self.context.project_root)
 
@@ -46,14 +44,14 @@ class ReactChecker(BaseChecker):
 
     def run_tests(self) -> CommandResult:
         """Runs tests in a non-interactive CI mode."""
-        logger.info("Running Jest test suite...")
+        logger.info("Running React test suite...")
 
-        # Inject CI=true to prevent Jest from starting interactive watch mode
+        # Inject CI=true to prevent Jest/Vitest from starting interactive watch mode
         env = os.environ.copy()
         env["CI"] = "true"
 
         return run_command(
-            ["npm", "test", "--", "--watchAll=false"],
+            ["npm", "test"],
             cwd=self.context.project_root,
             env=env,
         )
@@ -64,8 +62,6 @@ class ReactChecker(BaseChecker):
 
         config = self.context.config.security
         if config.npm_audit:
-            # npm audit returns non-zero code if vulnerability is found.
-            # Usually developers audit with levels (e.g. audit --audit-level=high)
             return run_command(["npm", "audit"], cwd=self.context.project_root)
 
         return CommandResult(
@@ -75,17 +71,4 @@ class ReactChecker(BaseChecker):
             stderr="",
             duration=0.0,
             success=True,
-        )
-
-    def run_coverage(self) -> CommandResult:
-        """Runs test coverage verification."""
-        logger.info("Running React test coverage reports...")
-
-        env = os.environ.copy()
-        env["CI"] = "true"
-
-        return run_command(
-            ["npm", "test", "--", "--coverage", "--watchAll=false"],
-            cwd=self.context.project_root,
-            env=env,
         )

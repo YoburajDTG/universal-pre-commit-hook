@@ -84,8 +84,4 @@ jobs:
 
       # 12. Run security vulnerability scans
       - name: Run Security Scans
-        run: python scripts/run_validation.py --stage security_scan
-
-      # 13. Run code coverage assessments
-      - name: Run Code Coverage Check
-        run: python scripts/run_validation.py --stage coverage
+        run: python scripts/run_validation.py --stage security

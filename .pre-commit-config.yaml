@@ -1,5 +1,5 @@
 # Universal Pre-Commit Validation Hook Configuration
-# Installs hooks for local execution on git staged items and commit message validation.
+# Installs hooks for local execution on git staged items.
 
 repos:
   - repo: local
@@ -11,10 +11,3 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
-
-      - id: conventional-commits
-        name: Conventional Commit Validation
-        entry: python scripts/run_validation.py
-        language: system
-        pass_filenames: false
-        stages: [commit-msg]

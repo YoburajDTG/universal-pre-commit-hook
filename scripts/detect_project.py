@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-Project detection module for the Universal Pre-Commit Validation Framework.
-Scans the workspace to identify Python, React, .NET, or Java projects,
-handling monorepos and multi-language structures gracefully.
-"""
-
 import logging
 from pathlib import Path
 from typing import List, Set

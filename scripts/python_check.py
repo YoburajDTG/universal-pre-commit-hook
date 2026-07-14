@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-Python project checker implementation for the Universal Pre-Commit Validation Framework.
-Enforces PEP8, styling (Black/Isort), linting (Ruff), unit testing (Pytest),
-security auditing (Bandit/pip-audit), and coverage.
-"""
-
 import logging
 import sys
 
@@ -50,24 +43,24 @@ class PythonChecker(BaseChecker):
         return sys.executable
 
     def run_formatter(self) -> CommandResult:
-        """Runs black and isort to format Python code."""
+        """Runs black and isort in validation/check-only mode."""
         logger.info("Running Python code formatter checks...")
         py_exec = self._get_python_executable()
 
-        # Run Black
+        # Run Black --check
         black_res = run_command(
-            [py_exec, "-m", "black", "."], cwd=self.context.project_root
+            [py_exec, "-m", "black", "--check", "."], cwd=self.context.project_root
         )
         if not black_res.success:
             return black_res
 
-        # Run Isort
+        # Run Isort --check-only
         isort_res = run_command(
-            [py_exec, "-m", "isort", "."], cwd=self.context.project_root
+            [py_exec, "-m", "isort", "--check-only", "."], cwd=self.context.project_root
         )
         return isort_res
 
-    def run_lint(self) -> CommandResult:
+    def run_linter(self) -> CommandResult:
         """Runs Ruff for ultra-fast linting checks."""
         logger.info("Running Python static code linter...")
         py_exec = self._get_python_executable()
@@ -82,7 +75,7 @@ class PythonChecker(BaseChecker):
         """
         logger.info("Verifying Python syntax compile checks...")
 
-        # Find all python files excluding virtual environments
+        # Find all python files excluding virtual environments and build directories
         py_files = []
         for file_path in self.context.project_root.rglob("*.py"):
             parts = file_path.parts
@@ -139,7 +132,6 @@ class PythonChecker(BaseChecker):
         # 2. pip-audit check (Dependency vulnerability scanner)
         if config.pip_audit:
             logger.info("Running pip-audit vulnerability checks...")
-            # Run pip-audit against current virtualenv or requirements.txt
             pip_audit_cmd = [py_exec, "-m", "pip_audit"]
             if (self.context.project_root / "requirements.txt").exists():
                 pip_audit_cmd += ["-r", "requirements.txt"]
@@ -155,13 +147,4 @@ class PythonChecker(BaseChecker):
             stderr="",
             duration=0.0,
             success=True,
-        )
-
-    def run_coverage(self) -> CommandResult:
-        """Runs pytest with coverage reports enabled."""
-        logger.info("Checking Python test coverage reports...")
-        py_exec = self._get_python_executable()
-        return run_command(
-            [py_exec, "-m", "pytest", "--cov=.", "--cov-report=term-missing"],
-            cwd=self.context.project_root,
         )

@@ -5,7 +5,9 @@ Provides logging setup, colorized CLI helpers, and robust process execution.
 """
 
 import logging
+import re
 import subprocess  # nosec B404
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +21,22 @@ colorama.init(autoreset=True)
 
 # Shared framework logger
 logger = logging.getLogger("universal-precommit")
+
+# Regex to strip ANSI escape codes
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\(B")
+
+
+class AnsiStrippingFormatter(logging.Formatter):
+    """Logging Formatter that strips ANSI escape codes for file outputs."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        # Create a copy of formatting parameters to avoid mutating the log record
+        orig_msg = record.msg
+        if isinstance(record.msg, str):
+            record.msg = ANSI_ESCAPE.sub("", record.msg)
+        result = super().format(record)
+        record.msg = orig_msg
+        return result
 
 
 @dataclass(frozen=True)
@@ -38,16 +56,23 @@ def setup_logging(log_file: Optional[Path] = None) -> None:
     log_level = logging.INFO
     log_format = "%(asctime)s - %(levelname)s - %(message)s"
 
-    handlers: List[logging.Handler] = [logging.StreamHandler()]
+    # Use standard Formatter for stream handler (console)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(logging.Formatter(log_format))
+    console_handler.setLevel(log_level)
+
+    handlers = [console_handler]
 
     if log_file:
         # Ensure parent folder for the log file exists
         log_file.parent.mkdir(parents=True, exist_ok=True)
-        handlers.append(logging.FileHandler(log_file, encoding="utf-8"))
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler.setFormatter(AnsiStrippingFormatter(log_format))
+        file_handler.setLevel(log_level)
+        handlers.append(file_handler)
 
-    logging.basicConfig(
-        level=log_level, format=log_format, handlers=handlers, force=True
-    )
+    # Reconfigure root logging
+    logging.basicConfig(level=log_level, handlers=handlers, force=True)
 
 
 def print_success(message: str) -> None:
@@ -91,6 +116,10 @@ def run_command(
     logger.info(f"Running command: {cmd_str} (cwd: {cwd or Path.cwd()})")
 
     start_time = time.perf_counter()
+    is_windows = sys.platform.startswith("win")
+
+    # Use shell execution on Windows for list commands to resolve command script wrappers (e.g. npm, npx, gradle)
+    shell_active = isinstance(cmd, str) or (is_windows and isinstance(cmd, list))
 
     try:
         # Run process via subprocess
@@ -101,7 +130,7 @@ def run_command(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            shell=isinstance(cmd, str),  # shell=True only if raw string
+            shell=shell_active,
             timeout=timeout,
         )
 

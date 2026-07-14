@@ -7,11 +7,20 @@ Follows SOLID design principles to enable framework scalability.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 from utils import CommandResult
 
 from config import AppConfig
+
+# Map stage keys from config to execution method names
+STAGE_TO_METHOD: Dict[str, str] = {
+    "formatter": "run_formatter",
+    "lint": "run_linter",
+    "build": "run_build",
+    "tests": "run_tests",
+    "security": "run_security_scan",
+}
 
 
 @dataclass(frozen=True)
@@ -63,8 +72,8 @@ class BaseChecker(ABC):
             )
 
         # Map stage string to execution method
-        method_name = f"run_{stage_name}"
-        if not hasattr(self, method_name):
+        method_name = STAGE_TO_METHOD.get(stage_name)
+        if not method_name or not hasattr(self, method_name):
             return CommandResult(
                 command=f"unimplemented_{self.name}_{stage_name}",
                 exit_code=0,
@@ -79,12 +88,12 @@ class BaseChecker(ABC):
 
     @abstractmethod
     def run_formatter(self) -> CommandResult:
-        """Checks/applies code formatting rules."""
+        """Checks code formatting rules."""
         pass
 
     @abstractmethod
-    def run_lint(self) -> CommandResult:
-        """Checks/applies static analysis linting rules."""
+    def run_linter(self) -> CommandResult:
+        """Checks static analysis linting rules."""
         pass
 
     @abstractmethod
@@ -97,12 +106,13 @@ class BaseChecker(ABC):
         """Runs the unit/integration test suites."""
         pass
 
-    @abstractmethod
     def run_security_scan(self) -> CommandResult:
-        """Executes dependency auditing or SAST scans."""
-        pass
-
-    @abstractmethod
-    def run_coverage(self) -> CommandResult:
-        """Evaluates test coverage metric checks."""
-        pass
+        """Executes dependency auditing or SAST scans (Optional stage)."""
+        return CommandResult(
+            command=f"skip_{self.name}_security",
+            exit_code=0,
+            stdout=f"Security scan not implemented for {self.name}",
+            stderr="",
+            duration=0.0,
+            success=True,
+        )

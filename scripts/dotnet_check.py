@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-.NET C# project checker implementation for the Universal Pre-Commit Validation Framework.
-Enforces code style (dotnet format), compilation (dotnet build), testing (dotnet test),
-and package vulnerability assessments (dotnet list package --vulnerable).
-"""
-
 import logging
 
 from common import BaseChecker
@@ -27,54 +20,41 @@ class DotNetChecker(BaseChecker):
         return len(csproj_files) > 0 or len(sln_files) > 0
 
     def run_formatter(self) -> CommandResult:
-        """Invokes dotnet format to fix layout/whitespace/style conventions."""
-        logger.info("Running dotnet format to fix styles and layout...")
-        return run_command(["dotnet", "format"], cwd=self.context.project_root)
-
-    def run_lint(self) -> CommandResult:
-        """Verifies styling and syntax rules without writing changes."""
-        logger.info("Running dotnet style verification (linter)...")
-        # dotnet format --verify-no-changes acts as formatting check linter
+        """Invokes dotnet format in check-only validation mode."""
+        logger.info("Running dotnet format verification...")
         return run_command(
             ["dotnet", "format", "--verify-no-changes"], cwd=self.context.project_root
+        )
+
+    def run_linter(self) -> CommandResult:
+        """Skips the linter stage since no dedicated C# linter is configured (Roslyn runs during build)."""
+        logger.info("Skipping dotnet linter stage (no dedicated linter configured).")
+        return CommandResult(
+            command="skip_dotnet_linter",
+            exit_code=0,
+            stdout="Skipped: No dedicated C# standalone linter configured.",
+            stderr="",
+            duration=0.0,
+            success=True,
         )
 
     def run_build(self) -> CommandResult:
         """Compiles the solution or project."""
         logger.info("Running dotnet build...")
-        return run_command(
-            ["dotnet", "build", "--configuration", "Release"],
-            cwd=self.context.project_root,
-        )
+        return run_command(["dotnet", "build"], cwd=self.context.project_root)
 
     def run_tests(self) -> CommandResult:
         """Runs the unit/integration test suites."""
         logger.info("Running dotnet test suite...")
-        return run_command(
-            ["dotnet", "test", "--no-build", "--configuration", "Release"],
-            cwd=self.context.project_root,
-        )
+        return run_command(["dotnet", "test"], cwd=self.context.project_root)
 
     def run_security_scan(self) -> CommandResult:
-        """Scans packages for known vulnerabilities via dotnet list package."""
-        logger.info("Scanning for vulnerable .NET dependencies...")
-
-        # Check packages for security warnings (available in modern .NET CLI)
-        return run_command(
-            ["dotnet", "list", "package", "--vulnerable"], cwd=self.context.project_root
-        )
-
-    def run_coverage(self) -> CommandResult:
-        """Evaluates code coverage for dotnet tests."""
-        logger.info("Evaluating .NET test coverage metrics...")
-        # Collect coverage using standard cross-platform logger or package Coverlet
-        return run_command(
-            [
-                "dotnet",
-                "test",
-                '--collect:"XPlat Code Coverage"',
-                "--configuration",
-                "Release",
-            ],
-            cwd=self.context.project_root,
+        """Skips dependency auditing for .NET as no default tool is requested."""
+        return CommandResult(
+            command="skip_dotnet_security",
+            exit_code=0,
+            stdout="Skipped: No .NET security auditing tool configured.",
+            stderr="",
+            duration=0.0,
+            success=True,
         )

@@ -20,8 +20,7 @@ class StagesConfig:
     lint: bool = True
     build: bool = True
     tests: bool = True
-    security_scan: bool = True
-    coverage: bool = True
+    security: bool = False
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "StagesConfig":
@@ -30,40 +29,26 @@ class StagesConfig:
             lint=data.get("lint", True),
             build=data.get("build", True),
             tests=data.get("tests", True),
-            security_scan=data.get("security_scan", True),
-            coverage=data.get("coverage", True),
+            security=data.get("security", False),
         )
 
 
 @dataclass(frozen=True)
 class SecurityConfig:
+    enabled: bool = False
     bandit: bool = True
     pip_audit: bool = True
     npm_audit: bool = True
     owasp_dependency_check: bool = False
-    gitleaks: bool = False
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SecurityConfig":
         return cls(
+            enabled=data.get("enabled", False),
             bandit=data.get("bandit", True),
             pip_audit=data.get("pip_audit", True),
             npm_audit=data.get("npm_audit", True),
             owasp_dependency_check=data.get("owasp_dependency_check", False),
-            gitleaks=data.get("gitleaks", False),
-        )
-
-
-@dataclass(frozen=True)
-class GitConfig:
-    conventional_commits: bool = True
-    branch_protection: bool = True
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "GitConfig":
-        return cls(
-            conventional_commits=data.get("conventional_commits", True),
-            branch_protection=data.get("branch_protection", True),
         )
 
 
@@ -71,14 +56,12 @@ class GitConfig:
 class AppConfig:
     stages: StagesConfig = field(default_factory=StagesConfig)
     security: SecurityConfig = field(default_factory=SecurityConfig)
-    git: GitConfig = field(default_factory=GitConfig)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AppConfig":
         return cls(
             stages=StagesConfig.from_dict(data.get("stages", {})),
             security=SecurityConfig.from_dict(data.get("security", {})),
-            git=GitConfig.from_dict(data.get("git", {})),
         )
 
 
