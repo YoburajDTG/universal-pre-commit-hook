@@ -110,7 +110,19 @@ class PythonChecker(BaseChecker):
         """Runs unit and integration tests using pytest within the project's Python runtime."""
         logger.info("Running Python unit test suite...")
         py_exec = self._get_python_executable()
-        return run_command([py_exec, "-m", "pytest"], cwd=self.context.project_root)
+        res = run_command([py_exec, "-m", "pytest"], cwd=self.context.project_root)
+        
+        # Pytest exit code 5 means "no tests were collected", which is safe to treat as success in pre-commit hooks
+        if res.exit_code == 5:
+            return CommandResult(
+                command=res.command,
+                exit_code=0,
+                stdout=res.stdout,
+                stderr=res.stderr,
+                duration=res.duration,
+                success=True,
+            )
+        return res
 
     def run_security_scan(self) -> CommandResult:
         """Executes security scans using Bandit and pip-audit based on configuration."""
