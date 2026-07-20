@@ -7,6 +7,8 @@ from dotnet_check import DotNetChecker
 from java_check import JavaChecker
 from python_check import PythonChecker
 from react_check import ReactChecker
+from go_check import GoChecker
+from rust_check import RustChecker
 
 logger = logging.getLogger("universal-precommit")
 
@@ -112,6 +114,34 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
                     detected_checkers.append(JavaChecker(sub_context))
                     detected_paths.add(current_dir)
 
+            # Check for Go markers
+            if (current_dir / "go.mod").exists():
+                if current_dir not in detected_paths:
+                    logger.info(
+                        f"Detected Go project at: {current_dir.relative_to(root) if current_dir != root else '.'}"
+                    )
+                    sub_context = ValidationContext(
+                        project_root=current_dir,
+                        config=context.config,
+                        log_file=context.log_file,
+                    )
+                    detected_checkers.append(GoChecker(sub_context))
+                    detected_paths.add(current_dir)
+
+            # Check for Rust markers
+            if (current_dir / "Cargo.toml").exists():
+                if current_dir not in detected_paths:
+                    logger.info(
+                        f"Detected Rust project at: {current_dir.relative_to(root) if current_dir != root else '.'}"
+                    )
+                    sub_context = ValidationContext(
+                        project_root=current_dir,
+                        config=context.config,
+                        log_file=context.log_file,
+                    )
+                    detected_checkers.append(RustChecker(sub_context))
+                    detected_paths.add(current_dir)
+
             # Recurse into children
             for child in current_dir.iterdir():
                 if (
@@ -130,7 +160,8 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
 
     if not detected_checkers:
         logger.warning(
-            "No matching project footprints (Python, React, .NET, or Java) were detected."
+            "No matching project footprints (Python, React, .NET, Java or Rust) were detected."
         )
 
     return detected_checkers
+    

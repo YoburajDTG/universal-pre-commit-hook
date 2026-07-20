@@ -21,7 +21,7 @@ from utils import (
 )
 
 from config import load_config
-
+from reporter import write_reports
 
 def parse_args() -> argparse.Namespace:
     """Parses command-line configuration arguments."""
@@ -45,6 +45,21 @@ def parse_args() -> argparse.Namespace:
         type=str,
         choices=["formatter", "lint", "build", "tests", "security"],
         help="Execute only a single specific pipeline stage.",
+    )
+    parser.add_argument(
+        "--report-json",
+        type=str,
+        help="Path to export the execution summary as a JSON file.",
+    )
+    parser.add_argument(
+        "--report-md",
+        type=str,
+        help="Path to export the execution summary as a Markdown file.",
+    )
+    parser.add_argument(
+        "--report-html",
+        type=str,
+        help="Path to export the execution summary as an HTML dashboard.",
     )
     return parser.parse_args()
 
@@ -131,6 +146,13 @@ def main() -> int:
     # Dictionary to collect results: {checker_name: {stage_name: CommandResult}}
     results: Dict[str, Dict[str, CommandResult]] = {}
 
+    # Define report output paths
+    report_paths = {
+        "json": args.report_json,
+        "md": args.report_md,
+        "html": args.report_html,
+    }
+
     # 5. Execute stages sequentially across detected checkers
     for checker in checkers:
         results[checker.name] = {}
@@ -152,10 +174,12 @@ def main() -> int:
                 # Return immediately as requested for strict pre-commit checks
                 overall_duration = time.perf_counter() - start_time
                 print_overall_summary(checkers, results, overall_duration)
+                write_reports(checkers, results, overall_duration, False, report_paths)
                 return res.exit_code if res.exit_code != 0 else 1
 
     overall_duration = time.perf_counter() - start_time
     success = print_overall_summary(checkers, results, overall_duration)
+    write_reports(checkers, results, overall_duration, success, report_paths)
 
     return 0 if success else 1
 
