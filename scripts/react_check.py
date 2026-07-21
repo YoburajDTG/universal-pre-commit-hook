@@ -26,22 +26,38 @@ class ReactChecker(BaseChecker):
         """Determines if the directory is a JavaScript/TypeScript/React project."""
         return (self.context.project_root / "package.json").exists()
 
+    def _get_targets(self) -> list[str]:
+        if self.context.changed_files:
+            return [f for f in self.context.changed_files if f.endswith((".js", ".jsx", ".ts", ".tsx", ".json", ".css", ".scss"))]
+        return ["."]
+
     def run_formatter(self) -> CommandResult:
         """Runs Prettier in validation/check mode."""
         logger.info("Running Prettier code formatter check...")
-        return run_command(
-            ["npx", "prettier", "--check", "."], cwd=self.context.project_root
-        )
+        targets = self._get_targets()
+        if not targets and self.context.changed_files:
+            return CommandResult(command="skip", exit_code=0, stdout="No matching files changed.", stderr="", duration=0.0, success=True)
+            
+        cmd = self.docker_wrap(["npx", "prettier", "--check"] + targets, "node:18-alpine")
+        return run_command(cmd, cwd=self.context.project_root)
 
     def run_linter(self) -> CommandResult:
         """Runs ESLint static code linter."""
         logger.info("Running ESLint code linter...")
-        return run_command(["npx", "eslint", "."], cwd=self.context.project_root)
+        targets = self._get_targets()
+        if self.context.changed_files:
+            targets = [f for f in self.context.changed_files if f.endswith((".js", ".jsx", ".ts", ".tsx"))]
+            if not targets:
+                return CommandResult(command="skip", exit_code=0, stdout="No JS/TS files changed.", stderr="", duration=0.0, success=True)
+                
+        cmd = self.docker_wrap(["npx", "eslint"] + targets, "node:18-alpine")
+        return run_command(cmd, cwd=self.context.project_root)
 
     def run_build(self) -> CommandResult:
         """Compiles the application into a production bundle."""
         logger.info("Running production build checks...")
-        return run_command(["npm", "run", "build"], cwd=self.context.project_root)
+        cmd = self.docker_wrap(["npm", "run", "build"], "node:18-alpine")
+        return run_command(cmd, cwd=self.context.project_root)
 
     def run_tests(self) -> CommandResult:
         """Runs tests in a non-interactive CI mode if configured in package.json."""
@@ -73,8 +89,9 @@ class ReactChecker(BaseChecker):
         env = os.environ.copy()
         env["CI"] = "true"
 
+        cmd = self.docker_wrap(["npm", "test"], "node:18-alpine")
         return run_command(
-            ["npm", "test"],
+            cmd,
             cwd=self.context.project_root,
             env=env,
         )
@@ -85,7 +102,8 @@ class ReactChecker(BaseChecker):
 
         config = self.context.config.security
         if config.npm_audit:
-            return run_command(["npm", "audit"], cwd=self.context.project_root)
+            cmd = self.docker_wrap(["npm", "audit"], "node:18-alpine")
+            return run_command(cmd, cwd=self.context.project_root)
 
         return CommandResult(
             command="react_security_scan",

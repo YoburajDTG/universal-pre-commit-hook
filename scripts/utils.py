@@ -178,3 +178,37 @@ def run_command(
             duration=duration,
             success=False,
         )
+
+def get_changed_files(cwd: Optional[Path] = None) -> List[str]:
+    """Retrieves the list of staged files and modified tracked files using git diff."""
+    try:
+        process_staged = subprocess.run(  # nosec
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=cwd or Path.cwd(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        
+        # Get modified tracked files
+        process_modified = subprocess.run(  # nosec
+            ["git", "diff", "--name-only"],
+            cwd=cwd or Path.cwd(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        
+        files = []
+        if process_staged.returncode == 0:
+            files.extend(process_staged.stdout.strip().split("\n"))
+        if process_modified.returncode == 0:
+            files.extend(process_modified.stdout.strip().split("\n"))
+            
+        # Deduplicate and remove empty strings
+        return list(set(f for f in files if f))
+    except Exception as e:
+        logger.warning(f"Failed to get changed files via git: {e}")
+        return []

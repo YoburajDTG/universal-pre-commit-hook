@@ -5,7 +5,7 @@ Follows SOLID design principles to enable framework scalability.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -29,6 +29,7 @@ class ValidationContext:
 
     project_root: Path
     config: AppConfig
+    changed_files: list[str] = field(default_factory=list)
     log_file: Optional[Path] = None
 
 
@@ -40,6 +41,18 @@ class BaseChecker(ABC):
 
     def __init__(self, context: ValidationContext) -> None:
         self.context = context
+
+    def docker_wrap(self, cmd: list[str], image: str) -> list[str]:
+        """Wraps a command in a docker run call if use_docker is enabled."""
+        if not self.context.config.use_docker:
+            return cmd
+        project_dir = str(self.context.project_root.absolute())
+        return [
+            "docker", "run", "--rm",
+            "-v", f"{project_dir}:/app",
+            "-w", "/app",
+            image
+        ] + cmd
 
     @property
     @abstractmethod

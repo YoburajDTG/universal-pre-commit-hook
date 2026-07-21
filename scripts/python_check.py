@@ -34,6 +34,9 @@ class PythonChecker(BaseChecker):
         Attempts to locate the virtualenv python executable within the project.
         Falls back to sys.executable if no local virtualenv is discovered.
         """
+        if self.context.config.use_docker:
+            return "python"
+            
         for venv_name in [".venv", "venv", "env"]:
             venv_dir = self.context.project_root / venv_name
             if venv_dir.is_dir():
@@ -49,31 +52,45 @@ class PythonChecker(BaseChecker):
 
         return sys.executable
 
+    def _get_base_python(self) -> str:
+        if self.context.config.use_docker:
+            return "python"
+        return sys.executable
+
+    def _get_targets(self) -> list[str]:
+        if self.context.changed_files:
+            targets = [f for f in self.context.changed_files if f.endswith(".py")]
+            return targets
+        return ["."]
+
     def run_formatter(self) -> CommandResult:
         """Runs black and isort in validation/check-only mode using pre-commit's environment python."""
         logger.info("Running Python code formatter checks...")
-        py_exec = sys.executable
+        py_exec = self._get_base_python()
+        targets = self._get_targets()
+        
+        if not targets and self.context.changed_files:
+            return CommandResult(command="skip", exit_code=0, stdout="No python files changed.", stderr="", duration=0.0, success=True)
 
-        # Run Black --check
-        black_res = run_command(
-            [py_exec, "-m", "black", "--check", "."], cwd=self.context.project_root
-        )
+        cmd_black = self.docker_wrap([py_exec, "-m", "black", "--check"] + targets, "python:3.12-slim")
+        black_res = run_command(cmd_black, cwd=self.context.project_root)
         if not black_res.success:
             return black_res
 
-        # Run Isort --check-only
-        isort_res = run_command(
-            [py_exec, "-m", "isort", "--check-only", "."], cwd=self.context.project_root
-        )
-        return isort_res
+        cmd_isort = self.docker_wrap([py_exec, "-m", "isort", "--check-only"] + targets, "python:3.12-slim")
+        return run_command(cmd_isort, cwd=self.context.project_root)
 
     def run_linter(self) -> CommandResult:
         """Runs Ruff for ultra-fast linting checks using pre-commit's environment python."""
         logger.info("Running Python static code linter...")
-        py_exec = sys.executable
-        return run_command(
-            [py_exec, "-m", "ruff", "check", "."], cwd=self.context.project_root
-        )
+        py_exec = self._get_base_python()
+        targets = self._get_targets()
+
+        if not targets and self.context.changed_files:
+            return CommandResult(command="skip", exit_code=0, stdout="No python files changed.", stderr="", duration=0.0, success=True)
+
+        cmd_ruff = self.docker_wrap([py_exec, "-m", "ruff", "check"] + targets, "python:3.12-slim")
+        return run_command(cmd_ruff, cwd=self.context.project_root)
 
     def run_build(self) -> CommandResult:
         """
@@ -101,16 +118,15 @@ class PythonChecker(BaseChecker):
             )
 
         py_exec = self._get_python_executable()
-        # Compile all found source files
-        return run_command(
-            [py_exec, "-m", "py_compile"] + py_files, cwd=self.context.project_root
-        )
+        cmd_compile = self.docker_wrap([py_exec, "-m", "py_compile"] + py_files, "python:3.12-slim")
+        return run_command(cmd_compile, cwd=self.context.project_root)
 
     def run_tests(self) -> CommandResult:
         """Runs unit and integration tests using pytest within the project's Python runtime."""
         logger.info("Running Python unit test suite...")
         py_exec = self._get_python_executable()
-        res = run_command([py_exec, "-m", "pytest"], cwd=self.context.project_root)
+        cmd_pytest = self.docker_wrap([py_exec, "-m", "pytest"], "python:3.12-slim")
+        res = run_command(cmd_pytest, cwd=self.context.project_root)
         
         # Pytest exit code 5 means "no tests were collected", which is safe to treat as success in pre-commit hooks
         if res.exit_code == 5:
@@ -128,23 +144,15 @@ class PythonChecker(BaseChecker):
         """Executes security scans using Bandit and pip-audit based on configuration."""
         logger.info("Running Python security scanning stages...")
         config = self.context.config.security
-        py_exec = sys.executable
+        py_exec = self._get_base_python()
 
         # 1. Bandit check (SAST)
         if config.bandit:
             logger.info("Running Bandit security linter...")
-            bandit_res = run_command(
-                [
-                    py_exec,
-                    "-m",
-                    "bandit",
-                    "-r",
-                    ".",
-                    "-x",
-                    "./.venv,./venv,./env,./tests",
-                ],
-                cwd=self.context.project_root,
-            )
+            cmd_bandit = self.docker_wrap([
+                py_exec, "-m", "bandit", "-r", ".", "-x", "./.venv,./venv,./env,./tests"
+            ], "python:3.12-slim")
+            bandit_res = run_command(cmd_bandit, cwd=self.context.project_root)
             if not bandit_res.success:
                 return bandit_res
 
@@ -155,7 +163,8 @@ class PythonChecker(BaseChecker):
             if (self.context.project_root / "requirements.txt").exists():
                 pip_audit_cmd += ["-r", "requirements.txt"]
 
-            audit_res = run_command(pip_audit_cmd, cwd=self.context.project_root)
+            cmd_audit = self.docker_wrap(pip_audit_cmd, "python:3.12-slim")
+            audit_res = run_command(cmd_audit, cwd=self.context.project_root)
             if not audit_res.success:
                 return audit_res
 

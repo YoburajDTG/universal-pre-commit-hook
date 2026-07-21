@@ -8,6 +8,7 @@ formats terminal reports, and manages exit states.
 import argparse
 import sys
 import time
+import concurrent.futures
 from pathlib import Path
 from typing import Dict, List
 
@@ -18,6 +19,7 @@ from utils import (
     print_error,
     print_info,
     setup_logging,
+    get_changed_files,
 )
 
 from config import load_config
@@ -110,6 +112,22 @@ def print_overall_summary(
     print("=" * 60 + "\n")
     return not any_failures
 
+def run_checker_stages(checker: BaseChecker, stages_to_run: List[str], config) -> Dict[str, CommandResult]:
+    """Helper to run stages for a single checker. Used for parallel execution."""
+    checker_results = {}
+    print_info(f"Starting validations for {checker.name} project at: {checker.context.project_root}")
+    for stage in stages_to_run:
+        if stage == "security" and not config.security.enabled:
+            continue
+
+        print_info(f"Executing: {checker.name} -> {stage}")
+        res = checker.run_stage(stage)
+        checker_results[stage] = res
+
+        if not res.success:
+            print_error(f"Stage '{stage}' failed for {checker.name} project.")
+            break
+    return checker_results
 
 def main() -> int:
     """Main validation orchestration sequence."""
@@ -126,10 +144,11 @@ def main() -> int:
     # 2. Load configurations
     config_path = repo_root / args.config
     config = load_config(config_path)
+    changed_files = get_changed_files(repo_root) if config.incremental_checks else []
 
     # 3. Auto-discover repository languages
     context = ValidationContext(
-        project_root=repo_root, config=config, log_file=log_path
+        project_root=repo_root, config=config, log_file=log_path, changed_files=changed_files
     )
     checkers = detect_projects(context)
 
@@ -153,29 +172,36 @@ def main() -> int:
         "html": args.report_html,
     }
 
-    # 5. Execute stages sequentially across detected checkers
-    for checker in checkers:
-        results[checker.name] = {}
-        print_info(
-            f"Starting validations for {checker.name} project at: {checker.context.project_root}"
-        )
-
-        for stage in stages_to_run:
-            # Skip security stage if globally disabled in the security settings block
-            if stage == "security" and not config.security.enabled:
-                continue
-
-            print_info(f"Executing: {checker.name} -> {stage}")
-            res = checker.run_stage(stage)
-            results[checker.name][stage] = res
-
-            if not res.success:
-                print_error(f"Stage '{stage}' failed for {checker.name} project.")
-                # Return immediately as requested for strict pre-commit checks
-                overall_duration = time.perf_counter() - start_time
-                print_overall_summary(checkers, results, overall_duration)
-                write_reports(checkers, results, overall_duration, False, report_paths)
-                return res.exit_code if res.exit_code != 0 else 1
+    # 5. Execute stages
+    any_failures = False
+    if config.parallel_execution and len(checkers) > 1:
+        print_info("Running checkers in parallel mode...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(checkers)) as executor:
+            future_to_checker = {
+                executor.submit(run_checker_stages, checker, stages_to_run, config): checker
+                for checker in checkers
+            }
+            for future in concurrent.futures.as_completed(future_to_checker):
+                checker = future_to_checker[future]
+                try:
+                    checker_results = future.result()
+                    results[checker.name] = checker_results
+                    for stage, res in checker_results.items():
+                        if not res.success:
+                            any_failures = True
+                except Exception as exc:
+                    print_error(f"Checker {checker.name} raised an exception: {exc}")
+                    any_failures = True
+    else:
+        for checker in checkers:
+            checker_results = run_checker_stages(checker, stages_to_run, config)
+            results[checker.name] = checker_results
+            for stage, res in checker_results.items():
+                if not res.success:
+                    any_failures = True
+                    break
+            if any_failures:
+                break
 
     overall_duration = time.perf_counter() - start_time
     success = print_overall_summary(checkers, results, overall_duration)

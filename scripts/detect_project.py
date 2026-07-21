@@ -9,6 +9,9 @@ from python_check import PythonChecker
 from react_check import ReactChecker
 from go_check import GoChecker
 from rust_check import RustChecker
+from cpp_check import CppChecker
+from docker_check import DockerChecker
+import yaml
 
 logger = logging.getLogger("universal-precommit")
 
@@ -49,6 +52,19 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
             return
 
         try:
+            # Load potential config override
+            current_config = context.config
+            override_path = current_dir / ".precommit-override.yaml"
+            if override_path.exists():
+                try:
+                    with open(override_path, "r", encoding="utf-8") as f:
+                        override_data = yaml.safe_load(f) or {}
+                    if isinstance(override_data, dict):
+                        current_config = current_config.merge_overrides(override_data)
+                        logger.info(f"Loaded config overrides from {override_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to load override config {override_path}: {e}")
+
             # Check for Python markers
             if (current_dir / "pyproject.toml").exists() or (
                 current_dir / "requirements.txt"
@@ -59,7 +75,8 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
                     )
                     sub_context = ValidationContext(
                         project_root=current_dir,
-                        config=context.config,
+                        config=current_config,
+                        changed_files=context.changed_files,
                         log_file=context.log_file,
                     )
                     detected_checkers.append(PythonChecker(sub_context))
@@ -73,7 +90,8 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
                     )
                     sub_context = ValidationContext(
                         project_root=current_dir,
-                        config=context.config,
+                        config=current_config,
+                        changed_files=context.changed_files,
                         log_file=context.log_file,
                     )
                     detected_checkers.append(ReactChecker(sub_context))
@@ -90,7 +108,8 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
                     )
                     sub_context = ValidationContext(
                         project_root=current_dir,
-                        config=context.config,
+                        config=current_config,
+                        changed_files=context.changed_files,
                         log_file=context.log_file,
                     )
                     detected_checkers.append(DotNetChecker(sub_context))
@@ -108,7 +127,8 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
                     )
                     sub_context = ValidationContext(
                         project_root=current_dir,
-                        config=context.config,
+                        config=current_config,
+                        changed_files=context.changed_files,
                         log_file=context.log_file,
                     )
                     detected_checkers.append(JavaChecker(sub_context))
@@ -122,7 +142,8 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
                     )
                     sub_context = ValidationContext(
                         project_root=current_dir,
-                        config=context.config,
+                        config=current_config,
+                        changed_files=context.changed_files,
                         log_file=context.log_file,
                     )
                     detected_checkers.append(GoChecker(sub_context))
@@ -136,10 +157,41 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
                     )
                     sub_context = ValidationContext(
                         project_root=current_dir,
-                        config=context.config,
+                        config=current_config,
+                        changed_files=context.changed_files,
                         log_file=context.log_file,
                     )
                     detected_checkers.append(RustChecker(sub_context))
+                    detected_paths.add(current_dir)
+
+            # Check for C/C++ markers
+            if (current_dir / "CMakeLists.txt").exists() or (current_dir / "Makefile").exists():
+                if current_dir not in detected_paths:
+                    logger.info(
+                        f"Detected C/C++ project at: {current_dir.relative_to(root) if current_dir != root else '.'}"
+                    )
+                    sub_context = ValidationContext(
+                        project_root=current_dir,
+                        config=current_config,
+                        changed_files=context.changed_files,
+                        log_file=context.log_file,
+                    )
+                    detected_checkers.append(CppChecker(sub_context))
+                    detected_paths.add(current_dir)
+
+            # Check for Docker markers
+            if (current_dir / "Dockerfile").exists():
+                if current_dir not in detected_paths:
+                    logger.info(
+                        f"Detected Docker project at: {current_dir.relative_to(root) if current_dir != root else '.'}"
+                    )
+                    sub_context = ValidationContext(
+                        project_root=current_dir,
+                        config=current_config,
+                        changed_files=context.changed_files,
+                        log_file=context.log_file,
+                    )
+                    detected_checkers.append(DockerChecker(sub_context))
                     detected_paths.add(current_dir)
 
             # Recurse into children
