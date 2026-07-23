@@ -1,8 +1,10 @@
 import logging
+
 from common import BaseChecker
 from utils import CommandResult, run_command
 
 logger = logging.getLogger("universal-precommit")
+
 
 class GoChecker(BaseChecker):
     @property
@@ -15,11 +17,32 @@ class GoChecker(BaseChecker):
 
     def run_formatter(self) -> CommandResult:
         logger.info("Running Go formatter checks...")
+        if self.context.changed_files and not self.get_matching_changed_files(
+            (".go", "go.mod")
+        ):
+            return CommandResult(
+                command="skip",
+                exit_code=0,
+                stdout="No Go files changed.",
+                stderr="",
+                duration=0.0,
+                success=True,
+            )
         return run_command(["go", "fmt", "./..."], cwd=self.context.project_root)
 
     def run_linter(self) -> CommandResult:
         logger.info("Running Go static code linter...")
-        # e.g., using golangci-lint
+        if self.context.changed_files and not self.get_matching_changed_files(
+            (".go", "go.mod")
+        ):
+            return CommandResult(
+                command="skip",
+                exit_code=0,
+                stdout="No Go files changed.",
+                stderr="",
+                duration=0.0,
+                success=True,
+            )
         return run_command(["golangci-lint", "run"], cwd=self.context.project_root)
 
     def run_build(self) -> CommandResult:
@@ -48,4 +71,7 @@ class GoChecker(BaseChecker):
 
     def run_coverage(self) -> CommandResult:
         logger.info("Running Go test coverage analysis...")
-        return run_command(["go", "test", "-coverprofile=coverage.out", "./..."], cwd=self.context.project_root)
+        return run_command(
+            ["go", "test", "-coverprofile=coverage.out", "./..."],
+            cwd=self.context.project_root,
+        )

@@ -1,2 +1,6 @@
 PyYAML>=6.0.1
 colorama>=0.4.6
+black>=24.0.0
+isort>=5.13.0
+ruff>=0.2.0
+pytest>=8.0.0

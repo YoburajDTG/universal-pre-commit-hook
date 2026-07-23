@@ -21,3 +21,19 @@ security:
   
   # Java security tools
   owasp_dependency_check: false # Run OWASP Dependency Check (requires Maven/Gradle plugin configuration)
+
+# Git Auto-Commit & Auto-Push Settings
+git:
+  auto_push: true              # Enable auto-push to git remote on successful validation
+  auto_commit: true            # Automatically stage and commit code changes before pushing
+  remote: "origin"             # Git remote repository name
+  target_branch: ""            # Target branch to push to (empty defaults to currently checked out branch)
+  commit_prefix: "chore: pre-commit validation passed"
+
+# Auto-Fix & Lint Warning Settings
+auto_fix: true                 # Automatically repair code formatting and linting errors when possible
+allow_lint_warnings: true      # Allow non-fatal linter warnings after auto-fix without blocking push
+
+
+
+

@@ -1,8 +1,10 @@
 import logging
+
 from common import BaseChecker
 from utils import CommandResult, run_command
 
 logger = logging.getLogger("universal-precommit")
+
 
 class RustChecker(BaseChecker):
     @property
@@ -16,12 +18,16 @@ class RustChecker(BaseChecker):
     def run_formatter(self) -> CommandResult:
         logger.info("Running Rust formatter checks...")
         # Formats the codebase using rustfmt
-        return run_command(["cargo", "fmt", "--", "--check"], cwd=self.context.project_root)
+        return run_command(
+            ["cargo", "fmt", "--", "--check"], cwd=self.context.project_root
+        )
 
     def run_linter(self) -> CommandResult:
         logger.info("Running Rust static code linter...")
         # Lint checking using clippy
-        return run_command(["cargo", "clippy", "--", "-D", "warnings"], cwd=self.context.project_root)
+        return run_command(
+            ["cargo", "clippy", "--", "-D", "warnings"], cwd=self.context.project_root
+        )
 
     def run_build(self) -> CommandResult:
         logger.info("Building Rust project...")

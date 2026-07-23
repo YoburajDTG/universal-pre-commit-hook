@@ -2,16 +2,16 @@ import logging
 from pathlib import Path
 from typing import List, Set
 
+import yaml
 from common import BaseChecker, ValidationContext
+from cpp_check import CppChecker
+from docker_check import DockerChecker
 from dotnet_check import DotNetChecker
+from go_check import GoChecker
 from java_check import JavaChecker
 from python_check import PythonChecker
 from react_check import ReactChecker
-from go_check import GoChecker
 from rust_check import RustChecker
-from cpp_check import CppChecker
-from docker_check import DockerChecker
-import yaml
 
 logger = logging.getLogger("universal-precommit")
 
@@ -63,7 +63,9 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
                         current_config = current_config.merge_overrides(override_data)
                         logger.info(f"Loaded config overrides from {override_path}")
                 except Exception as e:
-                    logger.warning(f"Failed to load override config {override_path}: {e}")
+                    logger.warning(
+                        f"Failed to load override config {override_path}: {e}"
+                    )
 
             # Check for Python markers
             if (current_dir / "pyproject.toml").exists() or (
@@ -165,7 +167,9 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
                     detected_paths.add(current_dir)
 
             # Check for C/C++ markers
-            if (current_dir / "CMakeLists.txt").exists() or (current_dir / "Makefile").exists():
+            if (current_dir / "CMakeLists.txt").exists() or (
+                current_dir / "Makefile"
+            ).exists():
                 if current_dir not in detected_paths:
                     logger.info(
                         f"Detected C/C++ project at: {current_dir.relative_to(root) if current_dir != root else '.'}"
@@ -216,4 +220,3 @@ def detect_projects(context: ValidationContext) -> List[BaseChecker]:
         )
 
     return detected_checkers
-    

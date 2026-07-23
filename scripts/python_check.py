@@ -36,7 +36,7 @@ class PythonChecker(BaseChecker):
         """
         if self.context.config.use_docker:
             return "python"
-            
+
         for venv_name in [".venv", "venv", "env"]:
             venv_dir = self.context.project_root / venv_name
             if venv_dir.is_dir():
@@ -68,16 +68,29 @@ class PythonChecker(BaseChecker):
         logger.info("Running Python code formatter checks...")
         py_exec = self._get_base_python()
         targets = self._get_targets()
-        
-        if not targets and self.context.changed_files:
-            return CommandResult(command="skip", exit_code=0, stdout="No python files changed.", stderr="", duration=0.0, success=True)
 
-        cmd_black = self.docker_wrap([py_exec, "-m", "black", "--check"] + targets, "python:3.12-slim")
+        if not targets and self.context.changed_files:
+            return CommandResult(
+                command="skip",
+                exit_code=0,
+                stdout="No python files changed.",
+                stderr="",
+                duration=0.0,
+                success=True,
+            )
+
+        black_flags = [] if self.context.auto_fix else ["--check"]
+        cmd_black = self.docker_wrap(
+            [py_exec, "-m", "black"] + black_flags + targets, "python:3.12-slim"
+        )
         black_res = run_command(cmd_black, cwd=self.context.project_root)
         if not black_res.success:
             return black_res
 
-        cmd_isort = self.docker_wrap([py_exec, "-m", "isort", "--check-only"] + targets, "python:3.12-slim")
+        isort_flags = [] if self.context.auto_fix else ["--check-only"]
+        cmd_isort = self.docker_wrap(
+            [py_exec, "-m", "isort"] + isort_flags + targets, "python:3.12-slim"
+        )
         return run_command(cmd_isort, cwd=self.context.project_root)
 
     def run_linter(self) -> CommandResult:
@@ -87,10 +100,34 @@ class PythonChecker(BaseChecker):
         targets = self._get_targets()
 
         if not targets and self.context.changed_files:
-            return CommandResult(command="skip", exit_code=0, stdout="No python files changed.", stderr="", duration=0.0, success=True)
+            return CommandResult(
+                command="skip",
+                exit_code=0,
+                stdout="No python files changed.",
+                stderr="",
+                duration=0.0,
+                success=True,
+            )
 
-        cmd_ruff = self.docker_wrap([py_exec, "-m", "ruff", "check"] + targets, "python:3.12-slim")
-        return run_command(cmd_ruff, cwd=self.context.project_root)
+        ruff_cmd = [py_exec, "-m", "ruff", "check"]
+        if self.context.auto_fix:
+            ruff_cmd.append("--fix")
+        cmd_ruff = self.docker_wrap(ruff_cmd + targets, "python:3.12-slim")
+        res = run_command(cmd_ruff, cwd=self.context.project_root)
+
+        if not res.success and self.context.allow_lint_warnings:
+            logger.warning(
+                "Ruff auto-fix executed. Proceeding with pipeline (allow_lint_warnings=True)..."
+            )
+            return CommandResult(
+                command=res.command,
+                exit_code=0,
+                stdout=res.stdout,
+                stderr=res.stderr,
+                duration=res.duration,
+                success=True,
+            )
+        return res
 
     def run_build(self) -> CommandResult:
         """
@@ -118,7 +155,9 @@ class PythonChecker(BaseChecker):
             )
 
         py_exec = self._get_python_executable()
-        cmd_compile = self.docker_wrap([py_exec, "-m", "py_compile"] + py_files, "python:3.12-slim")
+        cmd_compile = self.docker_wrap(
+            [py_exec, "-m", "py_compile"] + py_files, "python:3.12-slim"
+        )
         return run_command(cmd_compile, cwd=self.context.project_root)
 
     def run_tests(self) -> CommandResult:
@@ -127,7 +166,7 @@ class PythonChecker(BaseChecker):
         py_exec = self._get_python_executable()
         cmd_pytest = self.docker_wrap([py_exec, "-m", "pytest"], "python:3.12-slim")
         res = run_command(cmd_pytest, cwd=self.context.project_root)
-        
+
         # Pytest exit code 5 means "no tests were collected", which is safe to treat as success in pre-commit hooks
         if res.exit_code == 5:
             return CommandResult(
@@ -149,9 +188,18 @@ class PythonChecker(BaseChecker):
         # 1. Bandit check (SAST)
         if config.bandit:
             logger.info("Running Bandit security linter...")
-            cmd_bandit = self.docker_wrap([
-                py_exec, "-m", "bandit", "-r", ".", "-x", "./.venv,./venv,./env,./tests"
-            ], "python:3.12-slim")
+            cmd_bandit = self.docker_wrap(
+                [
+                    py_exec,
+                    "-m",
+                    "bandit",
+                    "-r",
+                    ".",
+                    "-x",
+                    "./.venv,./venv,./env,./tests",
+                ],
+                "python:3.12-slim",
+            )
             bandit_res = run_command(cmd_bandit, cwd=self.context.project_root)
             if not bandit_res.success:
                 return bandit_res

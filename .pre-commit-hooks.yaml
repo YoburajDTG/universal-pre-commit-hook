@@ -2,8 +2,18 @@
 # Defines hook entries for users importing this repository from GitHub.
 
 - id: universal-validation
-  name: Universal Code Validation
+  name: Universal Code Validation Pipeline
+  description: Runs auto-discovery, formatters, linters, build verification, and security scans across multi-language projects.
   entry: universal-validation
+  language: python
+  pass_filenames: false
+  always_run: true
+  stages: [pre-commit]
+
+- id: universal-precommit
+  name: Universal Pre-Commit & Auto-Push Pipeline
+  description: Runs pre-commit checks and optionally auto-commits & pushes on validation success.
+  entry: universal-precommit
   language: python
   pass_filenames: false
   always_run: true

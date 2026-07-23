@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
 from typing import Dict, List, Optional
+
 from common import BaseChecker
 from utils import CommandResult, logger
+
 
 def generate_json_report(
     checkers: List[BaseChecker],
@@ -38,6 +40,7 @@ def generate_json_report(
 
     return json.dumps(report_data, indent=2)
 
+
 def generate_markdown_report(
     checkers: List[BaseChecker],
     results: Dict[str, Dict[str, CommandResult]],
@@ -49,19 +52,19 @@ def generate_markdown_report(
     status_text = "PASSED" if success else "FAILED"
 
     lines = [
-        f"# Universal Pre-Commit Validation Summary",
-        f"",
+        "# Universal Pre-Commit Validation Summary",
+        "",
         f"**Status:** {status_icon} **{status_text}**",
         f"**Overall Duration:** {overall_duration:.2f}s",
-        f"",
-        f"## Project Breakdown",
-        f"",
+        "",
+        "## Project Breakdown",
+        "",
     ]
 
     for checker in checkers:
         lines.append(f"### {checker.name} Project")
         lines.append(f"**Root Directory:** `{checker.context.project_root.name}`")
-        lines.append(f"")
+        lines.append("")
         lines.append("| Stage | Status | Duration | Command |")
         lines.append("| :--- | :--- | :--- | :--- |")
 
@@ -77,10 +80,13 @@ def generate_markdown_report(
                 stage_status = "❌ Failed"
                 duration_str = f"{res.duration:.2f}s"
 
-            lines.append(f"| **{stage_name}** | {stage_status} | {duration_str} | `{res.command}` |")
-        lines.append(f"")
+            lines.append(
+                f"| **{stage_name}** | {stage_status} | {duration_str} | `{res.command}` |"
+            )
+        lines.append("")
 
     return "\n".join(lines)
+
 
 def generate_html_report(
     checkers: List[BaseChecker],
@@ -388,6 +394,7 @@ def generate_html_report(
 """
     return html_content
 
+
 def write_reports(
     checkers: List[BaseChecker],
     results: Dict[str, Dict[str, CommandResult]],
@@ -412,7 +419,9 @@ def write_reports(
 
     if md_path:
         try:
-            content = generate_markdown_report(checkers, results, overall_duration, success)
+            content = generate_markdown_report(
+                checkers, results, overall_duration, success
+            )
             dest = Path(md_path).resolve()
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(content, encoding="utf-8")

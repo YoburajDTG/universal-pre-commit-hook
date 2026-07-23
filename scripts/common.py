@@ -30,6 +30,8 @@ class ValidationContext:
     project_root: Path
     config: AppConfig
     changed_files: list[str] = field(default_factory=list)
+    auto_fix: bool = False
+    allow_lint_warnings: bool = True
     log_file: Optional[Path] = None
 
 
@@ -42,16 +44,33 @@ class BaseChecker(ABC):
     def __init__(self, context: ValidationContext) -> None:
         self.context = context
 
+    def get_matching_changed_files(self, extensions: tuple[str, ...]) -> list[str]:
+        """Returns changed files matching any of the specified extensions/filenames if incremental mode is active."""
+        if not self.context.changed_files:
+            return []
+        matching = []
+        for f in self.context.changed_files:
+            low = f.lower()
+            if any(
+                low.endswith(ext) or Path(f).name.lower() == ext for ext in extensions
+            ):
+                matching.append(f)
+        return matching
+
     def docker_wrap(self, cmd: list[str], image: str) -> list[str]:
         """Wraps a command in a docker run call if use_docker is enabled."""
         if not self.context.config.use_docker:
             return cmd
         project_dir = str(self.context.project_root.absolute())
         return [
-            "docker", "run", "--rm",
-            "-v", f"{project_dir}:/app",
-            "-w", "/app",
-            image
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{project_dir}:/app",
+            "-w",
+            "/app",
+            image,
         ] + cmd
 
     @property

@@ -53,21 +53,48 @@ class SecurityConfig:
 
 
 @dataclass(frozen=True)
+class GitConfig:
+    auto_push: bool = True
+    auto_commit: bool = True
+    remote: str = "origin"
+    target_branch: str = ""
+    commit_prefix: str = "chore: pre-commit validation passed"
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "GitConfig":
+        return cls(
+            auto_push=data.get("auto_push", True),
+            auto_commit=data.get("auto_commit", True),
+            remote=data.get("remote", "origin"),
+            target_branch=data.get("target_branch", ""),
+            commit_prefix=data.get(
+                "commit_prefix", "chore: pre-commit validation passed"
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class AppConfig:
     stages: StagesConfig = field(default_factory=StagesConfig)
     security: SecurityConfig = field(default_factory=SecurityConfig)
+    git: GitConfig = field(default_factory=GitConfig)
     use_docker: bool = False
     parallel_execution: bool = True
     incremental_checks: bool = True
+    auto_fix: bool = True
+    allow_lint_warnings: bool = True
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AppConfig":
         return cls(
             stages=StagesConfig.from_dict(data.get("stages", {})),
             security=SecurityConfig.from_dict(data.get("security", {})),
+            git=GitConfig.from_dict(data.get("git", {})),
             use_docker=data.get("use_docker", False),
             parallel_execution=data.get("parallel_execution", True),
             incremental_checks=data.get("incremental_checks", True),
+            auto_fix=data.get("auto_fix", True),
+            allow_lint_warnings=data.get("allow_lint_warnings", True),
         )
 
     def merge_overrides(self, override_data: Dict[str, Any]) -> "AppConfig":
@@ -75,7 +102,13 @@ class AppConfig:
         # Simple top-level merge for scalar fields
         new_use_docker = override_data.get("use_docker", self.use_docker)
         new_parallel = override_data.get("parallel_execution", self.parallel_execution)
-        new_incremental = override_data.get("incremental_checks", self.incremental_checks)
+        new_incremental = override_data.get(
+            "incremental_checks", self.incremental_checks
+        )
+        new_auto_fix = override_data.get("auto_fix", self.auto_fix)
+        new_allow_lint_warnings = override_data.get(
+            "allow_lint_warnings", self.allow_lint_warnings
+        )
 
         # Merge nested stages config
         stages_data = override_data.get("stages", {})
@@ -94,15 +127,30 @@ class AppConfig:
             bandit=sec_data.get("bandit", self.security.bandit),
             pip_audit=sec_data.get("pip_audit", self.security.pip_audit),
             npm_audit=sec_data.get("npm_audit", self.security.npm_audit),
-            owasp_dependency_check=sec_data.get("owasp_dependency_check", self.security.owasp_dependency_check),
+            owasp_dependency_check=sec_data.get(
+                "owasp_dependency_check", self.security.owasp_dependency_check
+            ),
+        )
+
+        # Merge nested git config
+        git_data = override_data.get("git", {})
+        new_git = GitConfig(
+            auto_push=git_data.get("auto_push", self.git.auto_push),
+            auto_commit=git_data.get("auto_commit", self.git.auto_commit),
+            remote=git_data.get("remote", self.git.remote),
+            target_branch=git_data.get("target_branch", self.git.target_branch),
+            commit_prefix=git_data.get("commit_prefix", self.git.commit_prefix),
         )
 
         return AppConfig(
             stages=new_stages,
             security=new_security,
+            git=new_git,
             use_docker=new_use_docker,
             parallel_execution=new_parallel,
-            incremental_checks=new_incremental
+            incremental_checks=new_incremental,
+            auto_fix=new_auto_fix,
+            allow_lint_warnings=new_allow_lint_warnings,
         )
 
 

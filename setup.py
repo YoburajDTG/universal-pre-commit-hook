@@ -1,9 +1,11 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="universal-precommit",
     version="1.0.0",
-    description="Universal Pre-Commit Validation Framework",
+    description="Universal Pre-Commit Validation Framework for multi-language projects",
+    author="YoburajDTG",
+    url="https://github.com/YoburajDTG/universal-pre-commit-hook",
     package_dir={"": "scripts"},
     py_modules=[
         "common",
@@ -13,6 +15,11 @@ setup(
         "react_check",
         "dotnet_check",
         "java_check",
+        "cpp_check",
+        "go_check",
+        "rust_check",
+        "docker_check",
+        "reporter",
         "run_validation",
         "utils",
     ],
@@ -29,7 +36,8 @@ setup(
     entry_points={
         "console_scripts": [
             "universal-validation=run_validation:main",
+            "universal-precommit=run_validation:main",
         ],
     },
-    python_requires=">=3.12",
+    python_requires=">=3.10",
 )

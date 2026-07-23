@@ -28,3 +28,9 @@ htmlcov/
 report.json
 report.md
 report.html
+
+# Python Build & Packaging Artifacts
+*.egg-info/
+.eggs/
+build/
+dist/
